@@ -37,10 +37,21 @@
 proc checkRequiredFiles { origin_dir} {
   set status true
   set files [list \
+ "[file normalize "$origin_dir/SPI_Bootloader_wrapper.v"]"\
   ]
   foreach ifile $files {
     if { ![file isfile $ifile] } {
       puts " Could not find local file $ifile "
+      set status false
+    }
+  }
+
+  set files [list \
+ "[file normalize "$origin_dir/IOC.xdc"]"\
+  ]
+  foreach ifile $files {
+    if { ![file isfile $ifile] } {
+      puts " Could not find remote file $ifile "
       set status false
     }
   }
@@ -126,7 +137,7 @@ if { $validate_required } {
 }
 
 # Create project
-create_project ${_xil_proj_name_} ./${_xil_proj_name_} -part xck26-sfvc784-2LV-c
+create_project ${_xil_proj_name_} ./${_xil_proj_name_} -part xc7a100tftg256-2
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
@@ -138,20 +149,24 @@ set_msg_config  -id {[BD 41-1271]}  -suppress  -ruleid {4}  -source 2
 
 # Set project properties
 set obj [current_project]
-set_property -name "board_part" -value "xilinx.com:kr260_som:part0:1.1" -objects $obj
-set_property -name "board_connections" -value "som240_1_connector xilinx.com:kr260_carrier:som240_1_connector:1.0 som240_2_connector xilinx.com:kr260_carrier:som240_2_connector:1.0" -objects $obj
 set_property -name "default_lib" -value "xil_defaultlib" -objects $obj
 set_property -name "enable_resource_estimation" -value "0" -objects $obj
 set_property -name "enable_vhdl_2008" -value "1" -objects $obj
 set_property -name "ip_cache_permissions" -value "read write" -objects $obj
 set_property -name "ip_output_repo" -value "$proj_dir/${_xil_proj_name_}.cache/ip" -objects $obj
 set_property -name "mem.enable_memory_map_generation" -value "1" -objects $obj
-set_property -name "platform.board_id" -value "kr260_som_som240_1_connector_kr260_carrier_som240_1_connector_som240_2_connector_kr260_carrier_som240_2_connector" -objects $obj
+set_property -name "part" -value "xc7a100tftg256-2" -objects $obj
 set_property -name "revised_directory_structure" -value "1" -objects $obj
 set_property -name "sim.central_dir" -value "$proj_dir/${_xil_proj_name_}.ip_user_files" -objects $obj
 set_property -name "sim.ip.auto_export_scripts" -value "1" -objects $obj
 set_property -name "simulator_language" -value "Mixed" -objects $obj
 set_property -name "sim_compile_state" -value "1" -objects $obj
+set_property -name "webtalk.activehdl_export_sim" -value "2" -objects $obj
+set_property -name "webtalk.modelsim_export_sim" -value "2" -objects $obj
+set_property -name "webtalk.questa_export_sim" -value "2" -objects $obj
+set_property -name "webtalk.riviera_export_sim" -value "2" -objects $obj
+set_property -name "webtalk.vcs_export_sim" -value "2" -objects $obj
+set_property -name "webtalk.xsim_export_sim" -value "2" -objects $obj
 set_property -name "xpm_libraries" -value "XPM_CDC XPM_FIFO XPM_MEMORY" -objects $obj
 
 # Create 'sources_1' fileset (if not found)
@@ -161,6 +176,12 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
+# Import local files from the original project
+set files [list \
+ [file normalize "${origin_dir}/SPI_Bootloader_wrapper.v"]\
+]
+set imported_files [import_files -fileset sources_1 $files]
+
 # Set 'sources_1' fileset file properties for remote files
 # None
 
@@ -181,12 +202,17 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 # Set 'constrs_1' fileset object
 set obj [get_filesets constrs_1]
 
-# Add IO Constraints 
-add_files -fileset constrs_1 -norecurse "${origin_dir}/IOC.xdc"
+# Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/IOC.xdc"]"
+set file_added [add_files -norecurse -fileset $obj [list $file]]
+set file "$origin_dir/IOC.xdc"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "XDC" -objects $file_obj
 
 # Set 'constrs_1' fileset properties
 set obj [get_filesets constrs_1]
-set_property -name "target_ucf" -value "[get_files *new/IOC.xdc]" -objects $obj
+set_property -name "target_part" -value "xc7a100tftg256-2" -objects $obj
 
 # Create 'sim_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sim_1] ""]} {
@@ -202,6 +228,13 @@ set obj [get_filesets sim_1]
 set_property -name "top" -value "SPI_Bootloader_wrapper" -objects $obj
 set_property -name "top_auto_set" -value "0" -objects $obj
 set_property -name "top_lib" -value "xil_defaultlib" -objects $obj
+
+# Set 'utils_1' fileset object
+set obj [get_filesets utils_1]
+# Empty (no sources present)
+
+# Set 'utils_1' fileset properties
+set obj [get_filesets utils_1]
 
 
 # Adding sources referenced in BDs, if not already added
@@ -224,20 +257,19 @@ proc cr_bd_SPI_Bootloader { parentCell } {
   set bCheckIPs 1
   if { $bCheckIPs == 1 } {
      set list_check_ips "\ 
-  xilinx.com:ip:microblaze:11.0\
-  xilinx.com:ip:axi_bram_ctrl:4.1\
-  xilinx.com:ip:blk_mem_gen:8.4\
-  xilinx.com:ip:clk_wiz:6.0\
-  xilinx.com:ip:proc_sys_reset:5.0\
   xilinx.com:ip:axi_intc:4.1\
-  xilinx.com:ip:xlconcat:2.1\
-  xilinx.com:ip:mdm:3.2\
-  xilinx.com:ip:axi_quad_spi:3.2\
-  xilinx.com:ip:axi_uartlite:2.0\
+  xilinx.com:ip:axi_bram_ctrl:4.1\
+  xilinx.com:ip:microblaze:11.0\
+  xilinx.com:ip:blk_mem_gen:8.4\
   xilinx.com:ip:axi_gpio:2.0\
-  xilinx.com:ip:util_vector_logic:2.0\
-  xilinx.com:ip:lmb_v10:3.0\
+  xilinx.com:ip:axi_quad_spi:3.2\
+  xilinx.com:ip:clk_wiz:6.0\
+  xilinx.com:ip:mdm:3.2\
+  xilinx.com:ip:xlconcat:2.1\
+  xilinx.com:ip:proc_sys_reset:5.0\
+  xilinx.com:ip:axi_uart16550:2.0\
   xilinx.com:ip:lmb_bram_if_cntlr:4.0\
+  xilinx.com:ip:lmb_v10:3.0\
   "
 
    set list_ips_missing ""
@@ -307,26 +339,31 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   create_bd_pin -dir I -type clk LMB_Clk
   create_bd_pin -dir I -type rst SYS_Rst
 
-  # Create instance: dlmb_v10, and set properties
-  set dlmb_v10 [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_v10:3.0 dlmb_v10 ]
-
-  # Create instance: ilmb_v10, and set properties
-  set ilmb_v10 [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_v10:3.0 ilmb_v10 ]
-
   # Create instance: dlmb_bram_if_cntlr, and set properties
   set dlmb_bram_if_cntlr [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_bram_if_cntlr:4.0 dlmb_bram_if_cntlr ]
   set_property CONFIG.C_ECC {0} $dlmb_bram_if_cntlr
 
+
+  # Create instance: dlmb_v10, and set properties
+  set dlmb_v10 [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_v10:3.0 dlmb_v10 ]
 
   # Create instance: ilmb_bram_if_cntlr, and set properties
   set ilmb_bram_if_cntlr [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_bram_if_cntlr:4.0 ilmb_bram_if_cntlr ]
   set_property CONFIG.C_ECC {0} $ilmb_bram_if_cntlr
 
 
+  # Create instance: ilmb_v10, and set properties
+  set ilmb_v10 [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_v10:3.0 ilmb_v10 ]
+
   # Create instance: lmb_bram, and set properties
   set lmb_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 lmb_bram ]
   set_property -dict [list \
+    CONFIG.Enable_B {Use_ENB_Pin} \
     CONFIG.Memory_Type {True_Dual_Port_RAM} \
+    CONFIG.Port_B_Clock {100} \
+    CONFIG.Port_B_Enable_Rate {100} \
+    CONFIG.Port_B_Write_Rate {50} \
+    CONFIG.Use_RSTB_Pin {true} \
     CONFIG.use_bram_block {BRAM_Controller} \
   ] $lmb_bram
 
@@ -340,38 +377,8 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   connect_bd_intf_net -intf_net microblaze_1_ilmb_cntlr [get_bd_intf_pins ilmb_bram_if_cntlr/BRAM_PORT] [get_bd_intf_pins lmb_bram/BRAM_PORTB]
 
   # Create port connections
-  connect_bd_net -net SYS_Rst_1 [get_bd_pins SYS_Rst] [get_bd_pins dlmb_v10/SYS_Rst] [get_bd_pins dlmb_bram_if_cntlr/LMB_Rst] [get_bd_pins ilmb_v10/SYS_Rst] [get_bd_pins ilmb_bram_if_cntlr/LMB_Rst]
-  connect_bd_net -net microblaze_1_Clk [get_bd_pins LMB_Clk] [get_bd_pins dlmb_v10/LMB_Clk] [get_bd_pins dlmb_bram_if_cntlr/LMB_Clk] [get_bd_pins ilmb_v10/LMB_Clk] [get_bd_pins ilmb_bram_if_cntlr/LMB_Clk]
-
-  # Perform GUI Layout
-  regenerate_bd_layout -hierarchy [get_bd_cells /BOOT_MC_local_memory] -layout_string {
-   "ActiveEmotionalView":"Default View",
-   "Default View_ScaleFactor":"0.662791",
-   "Default View_TopLeft":"-186,-8",
-   "ExpandedHierarchyInLayout":"",
-   "guistr":"# # String gsaved with Nlview 7.5.8 2022-09-21 7111 VDI=41 GEI=38 GUI=JA:10.0
-#  -string -flagsOSRD
-preplace port DLMB -pg 1 -lvl 0 -x 0 -y 50 -defaultsOSRD
-preplace port ILMB -pg 1 -lvl 0 -x 0 -y 220 -defaultsOSRD
-preplace port port-id_LMB_Clk -pg 1 -lvl 0 -x 0 -y 70 -defaultsOSRD
-preplace port port-id_SYS_Rst -pg 1 -lvl 0 -x 0 -y 90 -defaultsOSRD
-preplace inst dlmb_v10 -pg 1 -lvl 1 -x 140 -y 70 -defaultsOSRD
-preplace inst ilmb_v10 -pg 1 -lvl 1 -x 140 -y 240 -defaultsOSRD
-preplace inst dlmb_bram_if_cntlr -pg 1 -lvl 2 -x 380 -y 90 -defaultsOSRD
-preplace inst ilmb_bram_if_cntlr -pg 1 -lvl 2 -x 380 -y 260 -defaultsOSRD
-preplace inst lmb_bram -pg 1 -lvl 3 -x 630 -y 100 -defaultsOSRD
-preplace netloc SYS_Rst_1 1 0 2 20 150 260
-preplace netloc microblaze_1_Clk 1 0 2 30 160 250
-preplace netloc microblaze_1_dlmb 1 0 1 NJ 50
-preplace netloc microblaze_1_dlmb_bus 1 1 1 N 70
-preplace netloc microblaze_1_dlmb_cntlr 1 2 1 N 90
-preplace netloc microblaze_1_ilmb 1 0 1 NJ 220
-preplace netloc microblaze_1_ilmb_bus 1 1 1 N 240
-preplace netloc microblaze_1_ilmb_cntlr 1 2 1 500 110n
-levelinfo -pg 1 0 140 380 630 760
-pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
-"
-}
+  connect_bd_net -net SYS_Rst_1 [get_bd_pins SYS_Rst] [get_bd_pins dlmb_bram_if_cntlr/LMB_Rst] [get_bd_pins dlmb_v10/SYS_Rst] [get_bd_pins ilmb_bram_if_cntlr/LMB_Rst] [get_bd_pins ilmb_v10/SYS_Rst]
+  connect_bd_net -net microblaze_1_Clk [get_bd_pins LMB_Clk] [get_bd_pins dlmb_bram_if_cntlr/LMB_Clk] [get_bd_pins dlmb_v10/LMB_Clk] [get_bd_pins ilmb_bram_if_cntlr/LMB_Clk] [get_bd_pins ilmb_v10/LMB_Clk]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -404,24 +411,40 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
 
 
   # Create interface ports
-  set som240_1_connector_pmod1_spi [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:spi_rtl:1.0 som240_1_connector_pmod1_spi ]
+  set uart_rtl_0 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 uart_rtl_0 ]
 
-  set uart_rtl [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 uart_rtl ]
+  set gpio_rtl_0 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 gpio_rtl_0 ]
 
-  set som240_1_connector_pmod2_gpio [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 som240_1_connector_pmod2_gpio ]
+  set gpio_rtl_1 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 gpio_rtl_1 ]
 
-  set som240_1_connector_User_led [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:gpio_rtl:1.0 som240_1_connector_User_led ]
+  set spi_rtl_0 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:spi_rtl:1.0 spi_rtl_0 ]
 
 
   # Create ports
-  set som240_1_connector_hpa_clk0p_clk [ create_bd_port -dir I -type clk -freq_hz 25000000 som240_1_connector_hpa_clk0p_clk ]
+  set clk_100MHz [ create_bd_port -dir I -type clk -freq_hz 100000000 clk_100MHz ]
+  set reset_rtl_0 [ create_bd_port -dir I -type rst reset_rtl_0 ]
   set_property -dict [ list \
-   CONFIG.PHASE {0.0} \
- ] $som240_1_connector_hpa_clk0p_clk
-  set reset_rtl [ create_bd_port -dir I -type rst reset_rtl ]
-  set_property -dict [ list \
-   CONFIG.POLARITY {ACTIVE_LOW} \
- ] $reset_rtl
+   CONFIG.POLARITY {ACTIVE_HIGH} \
+ ] $reset_rtl_0
+
+  # Create instance: BOOT_MC_local_memory
+  create_hier_cell_BOOT_MC_local_memory [current_bd_instance .] BOOT_MC_local_memory
+
+  # Create instance: BOOT_MC_axi_intc, and set properties
+  set BOOT_MC_axi_intc [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 BOOT_MC_axi_intc ]
+  set_property CONFIG.C_HAS_FAST {1} $BOOT_MC_axi_intc
+
+
+  # Create instance: BOOT_ROM_ctrl, and set properties
+  set BOOT_ROM_ctrl [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 BOOT_ROM_ctrl ]
+
+  # Create instance: Boot_Interconnect, and set properties
+  set Boot_Interconnect [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 Boot_Interconnect ]
+  set_property -dict [list \
+    CONFIG.NUM_MI {6} \
+    CONFIG.NUM_SI {2} \
+  ] $Boot_Interconnect
+
 
   # Create instance: Boot_MC, and set properties
   set Boot_MC [ create_bd_cell -type ip -vlnv xilinx.com:ip:microblaze:11.0 Boot_MC ]
@@ -437,115 +460,17 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   ] $Boot_MC
 
 
-  # Create instance: Main_AP_DDR_ctrl, and set properties
-  set Main_AP_DDR_ctrl [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 Main_AP_DDR_ctrl ]
-  set_property CONFIG.DATA_WIDTH {32} $Main_AP_DDR_ctrl
-
-
-  # Create instance: BOOT_ROM_ctrl, and set properties
-  set BOOT_ROM_ctrl [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 BOOT_ROM_ctrl ]
-
-  # Create instance: Main_AP_DDR, and set properties
-  set Main_AP_DDR [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 Main_AP_DDR ]
-  set_property -dict [list \
-    CONFIG.EN_SAFETY_CKT {false} \
-    CONFIG.Memory_Type {True_Dual_Port_RAM} \
-  ] $Main_AP_DDR
-
-
-  # Create instance: clk_wiz, and set properties
-  set clk_wiz [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz ]
-  set_property -dict [list \
-    CONFIG.CLK_IN1_BOARD_INTERFACE {som240_1_connector_hpa_clk0p_clk} \
-    CONFIG.RESET_BOARD_INTERFACE {Custom} \
-    CONFIG.USE_BOARD_FLOW {true} \
-  ] $clk_wiz
-
-
-  # Create instance: rst_clk_wiz_100M, and set properties
-  set rst_clk_wiz_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_100M ]
-  set_property -dict [list \
-    CONFIG.C_NUM_BUS_RST {1} \
-    CONFIG.C_NUM_PERP_RST {2} \
-    CONFIG.RESET_BOARD_INTERFACE {Custom} \
-    CONFIG.USE_BOARD_FLOW {true} \
-  ] $rst_clk_wiz_100M
-
-
   # Create instance: Boot_ROM, and set properties
   set Boot_ROM [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 Boot_ROM ]
   set_property -dict [list \
     CONFIG.EN_SAFETY_CKT {false} \
+    CONFIG.Enable_B {Use_ENB_Pin} \
     CONFIG.Memory_Type {True_Dual_Port_RAM} \
+    CONFIG.Port_B_Clock {100} \
+    CONFIG.Port_B_Enable_Rate {100} \
+    CONFIG.Port_B_Write_Rate {50} \
+    CONFIG.Use_RSTB_Pin {true} \
   ] $Boot_ROM
-
-
-  # Create instance: BOOT_MC_local_memory
-  create_hier_cell_BOOT_MC_local_memory [current_bd_instance .] BOOT_MC_local_memory
-
-  # Create instance: Main_Interconnect, and set properties
-  set Main_Interconnect [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 Main_Interconnect ]
-  set_property -dict [list \
-    CONFIG.NUM_MI {2} \
-    CONFIG.NUM_SI {3} \
-  ] $Main_Interconnect
-
-
-  # Create instance: BOOT_MC_axi_intc, and set properties
-  set BOOT_MC_axi_intc [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 BOOT_MC_axi_intc ]
-  set_property CONFIG.C_HAS_FAST {1} $BOOT_MC_axi_intc
-
-
-  # Create instance: microblaze_1_xlconcat, and set properties
-  set microblaze_1_xlconcat [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 microblaze_1_xlconcat ]
-
-  # Create instance: mdm_1, and set properties
-  set mdm_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:mdm:3.2 mdm_1 ]
-  set_property -dict [list \
-    CONFIG.C_ADDR_SIZE {32} \
-    CONFIG.C_MB_DBG_PORTS {2} \
-    CONFIG.C_M_AXI_ADDR_WIDTH {32} \
-  ] $mdm_1
-
-
-  # Create instance: Boot_Interconnect, and set properties
-  set Boot_Interconnect [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 Boot_Interconnect ]
-  set_property -dict [list \
-    CONFIG.NUM_MI {6} \
-    CONFIG.NUM_SI {2} \
-  ] $Boot_Interconnect
-
-
-  # Create instance: axi_quad_spi_0, and set properties
-  set axi_quad_spi_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_quad_spi:3.2 axi_quad_spi_0 ]
-  set_property -dict [list \
-    CONFIG.C_SPI_MODE {2} \
-    CONFIG.QSPI_BOARD_INTERFACE {som240_1_connector_pmod1_spi} \
-    CONFIG.USE_BOARD_FLOW {true} \
-  ] $axi_quad_spi_0
-
-
-  # Create instance: axi_uartlite_0, and set properties
-  set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
-  set_property CONFIG.C_BAUDRATE {115200} $axi_uartlite_0
-
-  # Create instance: axi_gpio_0, and set properties
-  set axi_gpio_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_0 ]
-  set_property -dict [list \
-    CONFIG.C_ALL_OUTPUTS_2 {1} \
-    CONFIG.C_IS_DUAL {1} \
-    CONFIG.GPIO2_BOARD_INTERFACE {Custom} \
-    CONFIG.GPIO_BOARD_INTERFACE {som240_1_connector_pmod2_gpio} \
-    CONFIG.USE_BOARD_FLOW {true} \
-  ] $axi_gpio_0
-
-
-  # Create instance: axi_gpio_1, and set properties
-  set axi_gpio_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_1 ]
-  set_property -dict [list \
-    CONFIG.GPIO_BOARD_INTERFACE {som240_1_connector_User_led} \
-    CONFIG.USE_BOARD_FLOW {true} \
-  ] $axi_gpio_1
 
 
   # Create instance: Main_AP, and set properties
@@ -560,18 +485,99 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   ] $Main_AP
 
 
-  # Create instance: util_vector_logic_0, and set properties
-  set util_vector_logic_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 util_vector_logic_0 ]
+  # Create instance: Main_AP_DDR, and set properties
+  set Main_AP_DDR [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 Main_AP_DDR ]
   set_property -dict [list \
-    CONFIG.C_OPERATION {not} \
-    CONFIG.C_SIZE {1} \
-  ] $util_vector_logic_0
+    CONFIG.EN_SAFETY_CKT {false} \
+    CONFIG.Enable_B {Use_ENB_Pin} \
+    CONFIG.Memory_Type {True_Dual_Port_RAM} \
+    CONFIG.Port_B_Clock {100} \
+    CONFIG.Port_B_Enable_Rate {100} \
+    CONFIG.Port_B_Write_Rate {50} \
+    CONFIG.Use_RSTB_Pin {true} \
+  ] $Main_AP_DDR
 
+
+  # Create instance: Main_AP_DDR_ctrl, and set properties
+  set Main_AP_DDR_ctrl [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 Main_AP_DDR_ctrl ]
+  set_property CONFIG.DATA_WIDTH {32} $Main_AP_DDR_ctrl
+
+
+  # Create instance: Main_Interconnect, and set properties
+  set Main_Interconnect [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 Main_Interconnect ]
+  set_property -dict [list \
+    CONFIG.NUM_MI {2} \
+    CONFIG.NUM_SI {3} \
+  ] $Main_Interconnect
+
+
+  # Create instance: axi_gpio_0, and set properties
+  set axi_gpio_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_0 ]
+  set_property -dict [list \
+    CONFIG.C_ALL_OUTPUTS_2 {1} \
+    CONFIG.C_GPIO_WIDTH {1} \
+    CONFIG.C_IS_DUAL {1} \
+    CONFIG.GPIO2_BOARD_INTERFACE {Custom} \
+    CONFIG.GPIO_BOARD_INTERFACE {Custom} \
+    CONFIG.USE_BOARD_FLOW {true} \
+  ] $axi_gpio_0
+
+
+  # Create instance: axi_gpio_1, and set properties
+  set axi_gpio_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_1 ]
+  set_property -dict [list \
+    CONFIG.C_ALL_OUTPUTS {1} \
+    CONFIG.C_GPIO_WIDTH {2} \
+    CONFIG.GPIO_BOARD_INTERFACE {Custom} \
+    CONFIG.USE_BOARD_FLOW {true} \
+  ] $axi_gpio_1
+
+
+  # Create instance: axi_quad_spi_0, and set properties
+  set axi_quad_spi_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_quad_spi:3.2 axi_quad_spi_0 ]
+  set_property -dict [list \
+    CONFIG.C_FAMILY {zynquplus} \
+    CONFIG.C_SPI_MODE {2} \
+    CONFIG.C_SUB_FAMILY {zynquplus} \
+    CONFIG.C_USE_STARTUP {0} \
+    CONFIG.QSPI_BOARD_INTERFACE {Custom} \
+    CONFIG.UC_FAMILY {1} \
+    CONFIG.USE_BOARD_FLOW {true} \
+  ] $axi_quad_spi_0
+
+
+  # Create instance: clk_wiz, and set properties
+  set clk_wiz [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz ]
+
+  # Create instance: mdm_1, and set properties
+  set mdm_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:mdm:3.2 mdm_1 ]
+  set_property -dict [list \
+    CONFIG.C_ADDR_SIZE {32} \
+    CONFIG.C_MB_DBG_PORTS {2} \
+    CONFIG.C_M_AXI_ADDR_WIDTH {32} \
+  ] $mdm_1
+
+
+  # Create instance: microblaze_1_xlconcat, and set properties
+  set microblaze_1_xlconcat [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 microblaze_1_xlconcat ]
+
+  # Create instance: rst_clk_wiz_100M, and set properties
+  set rst_clk_wiz_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_100M ]
+  set_property -dict [list \
+    CONFIG.C_NUM_BUS_RST {1} \
+    CONFIG.C_NUM_PERP_RST {2} \
+    CONFIG.RESET_BOARD_INTERFACE {Custom} \
+    CONFIG.USE_BOARD_FLOW {true} \
+  ] $rst_clk_wiz_100M
+
+
+  # Create instance: axi_uart16550_0, and set properties
+  set axi_uart16550_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uart16550:2.0 axi_uart16550_0 ]
 
   # Create interface connections
   connect_bd_intf_net -intf_net Boot_Interconnect_M01_AXI [get_bd_intf_pins Boot_Interconnect/M01_AXI] [get_bd_intf_pins Main_Interconnect/S00_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M02_AXI [get_bd_intf_pins axi_quad_spi_0/AXI_LITE] [get_bd_intf_pins Boot_Interconnect/M02_AXI]
-  connect_bd_intf_net -intf_net Boot_Interconnect_M03_AXI [get_bd_intf_pins axi_uartlite_0/S_AXI] [get_bd_intf_pins Boot_Interconnect/M03_AXI]
+  connect_bd_intf_net -intf_net Boot_Interconnect_M03_AXI [get_bd_intf_pins Boot_Interconnect/M03_AXI] [get_bd_intf_pins axi_uart16550_0/S_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M04_AXI [get_bd_intf_pins axi_gpio_0/S_AXI] [get_bd_intf_pins Boot_Interconnect/M04_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M05_AXI [get_bd_intf_pins BOOT_MC_axi_intc/s_axi] [get_bd_intf_pins Boot_Interconnect/M05_AXI]
   connect_bd_intf_net -intf_net Boot_MP_M_AXI_IP [get_bd_intf_pins Boot_MC/M_AXI_IP] [get_bd_intf_pins Boot_Interconnect/S00_AXI]
@@ -581,11 +587,11 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   connect_bd_intf_net -intf_net axi_bram_ctrl_0_BRAM_PORTB [get_bd_intf_pins Main_AP_DDR/BRAM_PORTB] [get_bd_intf_pins Main_AP_DDR_ctrl/BRAM_PORTB]
   connect_bd_intf_net -intf_net axi_bram_ctrl_1_BRAM_PORTA [get_bd_intf_pins Boot_ROM/BRAM_PORTA] [get_bd_intf_pins BOOT_ROM_ctrl/BRAM_PORTA]
   connect_bd_intf_net -intf_net axi_bram_ctrl_1_BRAM_PORTB [get_bd_intf_pins Boot_ROM/BRAM_PORTB] [get_bd_intf_pins BOOT_ROM_ctrl/BRAM_PORTB]
-  connect_bd_intf_net -intf_net axi_gpio_0_GPIO [get_bd_intf_ports som240_1_connector_pmod2_gpio] [get_bd_intf_pins axi_gpio_0/GPIO]
-  connect_bd_intf_net -intf_net axi_gpio_1_GPIO [get_bd_intf_ports som240_1_connector_User_led] [get_bd_intf_pins axi_gpio_1/GPIO]
+  connect_bd_intf_net -intf_net axi_gpio_0_GPIO [get_bd_intf_ports gpio_rtl_0] [get_bd_intf_pins axi_gpio_0/GPIO]
+  connect_bd_intf_net -intf_net axi_gpio_1_GPIO [get_bd_intf_ports gpio_rtl_1] [get_bd_intf_pins axi_gpio_1/GPIO]
   connect_bd_intf_net -intf_net axi_interconnect_0_M00_AXI [get_bd_intf_pins Boot_Interconnect/M00_AXI] [get_bd_intf_pins BOOT_ROM_ctrl/S_AXI]
-  connect_bd_intf_net -intf_net axi_quad_spi_0_SPI_0 [get_bd_intf_ports som240_1_connector_pmod1_spi] [get_bd_intf_pins axi_quad_spi_0/SPI_0]
-  connect_bd_intf_net -intf_net axi_uartlite_0_UART [get_bd_intf_ports uart_rtl] [get_bd_intf_pins axi_uartlite_0/UART]
+  connect_bd_intf_net -intf_net axi_quad_spi_0_SPI_0 [get_bd_intf_ports spi_rtl_0] [get_bd_intf_pins axi_quad_spi_0/SPI_0]
+  connect_bd_intf_net -intf_net axi_uart16550_0_UART [get_bd_intf_ports uart_rtl_0] [get_bd_intf_pins axi_uart16550_0/UART]
   connect_bd_intf_net -intf_net microblaze_0_M_AXI_DP [get_bd_intf_pins Main_AP/M_AXI_DP] [get_bd_intf_pins Main_Interconnect/S01_AXI]
   connect_bd_intf_net -intf_net microblaze_0_M_AXI_IP [get_bd_intf_pins Main_AP/M_AXI_IP] [get_bd_intf_pins Main_Interconnect/S02_AXI]
   connect_bd_intf_net -intf_net microblaze_0_debug [get_bd_intf_pins mdm_1/MBDEBUG_1] [get_bd_intf_pins Main_AP/DEBUG]
@@ -598,17 +604,16 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   # Create port connections
   connect_bd_net -net axi_gpio_0_gpio2_io_o [get_bd_pins axi_gpio_0/gpio2_io_o] [get_bd_pins Main_AP/Reset]
   connect_bd_net -net axi_quad_spi_0_ip2intc_irpt [get_bd_pins axi_quad_spi_0/ip2intc_irpt] [get_bd_pins microblaze_1_xlconcat/In0]
-  connect_bd_net -net axi_uartlite_0_interrupt [get_bd_pins axi_uartlite_0/interrupt] [get_bd_pins microblaze_1_xlconcat/In1]
+  connect_bd_net -net axi_uart16550_0_ip2intc_irpt [get_bd_pins axi_uart16550_0/ip2intc_irpt] [get_bd_pins microblaze_1_xlconcat/In1]
+  connect_bd_net -net clk_100MHz_1 [get_bd_ports clk_100MHz] [get_bd_pins clk_wiz/clk_in1]
   connect_bd_net -net clk_wiz_locked [get_bd_pins clk_wiz/locked] [get_bd_pins rst_clk_wiz_100M/dcm_locked]
-  connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins rst_clk_wiz_100M/mb_debug_sys_rst] [get_bd_pins clk_wiz/reset]
-  connect_bd_net -net microblaze_0_Clk [get_bd_pins clk_wiz/clk_out1] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aclk] [get_bd_pins BOOT_ROM_ctrl/s_axi_aclk] [get_bd_pins Boot_MC/Clk] [get_bd_pins Main_Interconnect/ACLK] [get_bd_pins Main_Interconnect/S00_ACLK] [get_bd_pins Main_Interconnect/M00_ACLK] [get_bd_pins BOOT_MC_axi_intc/s_axi_aclk] [get_bd_pins BOOT_MC_axi_intc/processor_clk] [get_bd_pins BOOT_MC_local_memory/LMB_Clk] [get_bd_pins Boot_Interconnect/ACLK] [get_bd_pins Boot_Interconnect/M00_ACLK] [get_bd_pins Boot_Interconnect/S00_ACLK] [get_bd_pins Boot_Interconnect/M01_ACLK] [get_bd_pins Boot_Interconnect/S01_ACLK] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins Boot_Interconnect/M04_ACLK] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins Boot_Interconnect/M02_ACLK] [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins Boot_Interconnect/M03_ACLK] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins Boot_Interconnect/M05_ACLK] [get_bd_pins axi_gpio_1/s_axi_aclk] [get_bd_pins Main_Interconnect/M01_ACLK] [get_bd_pins Main_AP/Clk] [get_bd_pins Main_Interconnect/S01_ACLK] [get_bd_pins Main_Interconnect/S02_ACLK]
+  connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins clk_wiz/reset] [get_bd_pins rst_clk_wiz_100M/mb_debug_sys_rst]
+  connect_bd_net -net microblaze_0_Clk [get_bd_pins clk_wiz/clk_out1] [get_bd_pins BOOT_MC_local_memory/LMB_Clk] [get_bd_pins BOOT_MC_axi_intc/s_axi_aclk] [get_bd_pins BOOT_MC_axi_intc/processor_clk] [get_bd_pins BOOT_ROM_ctrl/s_axi_aclk] [get_bd_pins Boot_Interconnect/ACLK] [get_bd_pins Boot_Interconnect/S00_ACLK] [get_bd_pins Boot_Interconnect/M00_ACLK] [get_bd_pins Boot_Interconnect/M01_ACLK] [get_bd_pins Boot_Interconnect/S01_ACLK] [get_bd_pins Boot_Interconnect/M02_ACLK] [get_bd_pins Boot_Interconnect/M03_ACLK] [get_bd_pins Boot_Interconnect/M04_ACLK] [get_bd_pins Boot_Interconnect/M05_ACLK] [get_bd_pins Boot_MC/Clk] [get_bd_pins Main_AP/Clk] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aclk] [get_bd_pins Main_Interconnect/ACLK] [get_bd_pins Main_Interconnect/S00_ACLK] [get_bd_pins Main_Interconnect/M00_ACLK] [get_bd_pins Main_Interconnect/M01_ACLK] [get_bd_pins Main_Interconnect/S01_ACLK] [get_bd_pins Main_Interconnect/S02_ACLK] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins axi_gpio_1/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins axi_uart16550_0/s_axi_aclk]
   connect_bd_net -net microblaze_1_intr [get_bd_pins microblaze_1_xlconcat/dout] [get_bd_pins BOOT_MC_axi_intc/intr]
-  connect_bd_net -net reset_rtl_1 [get_bd_ports reset_rtl] [get_bd_pins util_vector_logic_0/Op1]
+  connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_100M/ext_reset_in]
   connect_bd_net -net rst_clk_wiz_100M_bus_struct_reset [get_bd_pins rst_clk_wiz_100M/bus_struct_reset] [get_bd_pins BOOT_MC_local_memory/SYS_Rst]
-  connect_bd_net -net rst_clk_wiz_100M_mb_reset [get_bd_pins rst_clk_wiz_100M/mb_reset] [get_bd_pins Boot_MC/Reset] [get_bd_pins BOOT_MC_axi_intc/processor_rst]
-  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aresetn] [get_bd_pins BOOT_ROM_ctrl/s_axi_aresetn] [get_bd_pins Main_Interconnect/ARESETN] [get_bd_pins Main_Interconnect/S00_ARESETN] [get_bd_pins Main_Interconnect/M00_ARESETN] [get_bd_pins BOOT_MC_axi_intc/s_axi_aresetn] [get_bd_pins Boot_Interconnect/ARESETN] [get_bd_pins Boot_Interconnect/M00_ARESETN] [get_bd_pins Boot_Interconnect/S00_ARESETN] [get_bd_pins Boot_Interconnect/M01_ARESETN] [get_bd_pins Boot_Interconnect/S01_ARESETN] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins Boot_Interconnect/M04_ARESETN] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins Boot_Interconnect/M02_ARESETN] [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins Boot_Interconnect/M03_ARESETN] [get_bd_pins Boot_Interconnect/M05_ARESETN] [get_bd_pins axi_gpio_1/s_axi_aresetn] [get_bd_pins Main_Interconnect/M01_ARESETN] [get_bd_pins Main_Interconnect/S01_ARESETN] [get_bd_pins Main_Interconnect/S02_ARESETN]
-  connect_bd_net -net som240_1_connector_hpa_clk0p_clk_1 [get_bd_ports som240_1_connector_hpa_clk0p_clk] [get_bd_pins clk_wiz/clk_in1]
-  connect_bd_net -net util_vector_logic_0_Res [get_bd_pins util_vector_logic_0/Res] [get_bd_pins rst_clk_wiz_100M/ext_reset_in]
+  connect_bd_net -net rst_clk_wiz_100M_mb_reset [get_bd_pins rst_clk_wiz_100M/mb_reset] [get_bd_pins BOOT_MC_axi_intc/processor_rst] [get_bd_pins Boot_MC/Reset]
+  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn] [get_bd_pins BOOT_MC_axi_intc/s_axi_aresetn] [get_bd_pins BOOT_ROM_ctrl/s_axi_aresetn] [get_bd_pins Boot_Interconnect/ARESETN] [get_bd_pins Boot_Interconnect/S00_ARESETN] [get_bd_pins Boot_Interconnect/M00_ARESETN] [get_bd_pins Boot_Interconnect/M01_ARESETN] [get_bd_pins Boot_Interconnect/S01_ARESETN] [get_bd_pins Boot_Interconnect/M02_ARESETN] [get_bd_pins Boot_Interconnect/M03_ARESETN] [get_bd_pins Boot_Interconnect/M04_ARESETN] [get_bd_pins Boot_Interconnect/M05_ARESETN] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aresetn] [get_bd_pins Main_Interconnect/ARESETN] [get_bd_pins Main_Interconnect/S00_ARESETN] [get_bd_pins Main_Interconnect/M00_ARESETN] [get_bd_pins Main_Interconnect/M01_ARESETN] [get_bd_pins Main_Interconnect/S01_ARESETN] [get_bd_pins Main_Interconnect/S02_ARESETN] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins axi_gpio_1/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn]
 
   # Create address segments
   assign_bd_address -offset 0x41200000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs BOOT_MC_axi_intc/S_AXI/Reg] -force
@@ -617,7 +622,7 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   assign_bd_address -offset 0x40000000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x40010000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_gpio_1/S_AXI/Reg] -force
   assign_bd_address -offset 0x44A00000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_quad_spi_0/AXI_LITE/Reg] -force
-  assign_bd_address -offset 0x40600000 -range 0x00000100 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_uartlite_0/S_AXI/Reg] -force
+  assign_bd_address -offset 0x44A10000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x00000000 -range 0x00008000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs BOOT_MC_local_memory/dlmb_bram_if_cntlr/SLMB/Mem] -force
   assign_bd_address -offset 0x41200000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs BOOT_MC_axi_intc/S_AXI/Reg] -force
   assign_bd_address -offset 0xC0000000 -range 0x00040000 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs BOOT_ROM_ctrl/S_AXI/Mem0] -force
@@ -625,90 +630,13 @@ pagesize -pg 1 -db -bbox -sgen -110 -10 760 340
   assign_bd_address -offset 0x40000000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x40010000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_gpio_1/S_AXI/Reg] -force
   assign_bd_address -offset 0x44A00000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_quad_spi_0/AXI_LITE/Reg] -force
-  assign_bd_address -offset 0x40600000 -range 0x00000100 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_uartlite_0/S_AXI/Reg] -force
+  assign_bd_address -offset 0x44A10000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x00000000 -range 0x00008000 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs BOOT_MC_local_memory/ilmb_bram_if_cntlr/SLMB/Mem] -force
   assign_bd_address -offset 0xC2000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Main_AP/Data] [get_bd_addr_segs Main_AP_DDR_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40010000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Main_AP/Data] [get_bd_addr_segs axi_gpio_1/S_AXI/Reg] -force
   assign_bd_address -offset 0xC2000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Main_AP/Instruction] [get_bd_addr_segs Main_AP_DDR_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40010000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Main_AP/Instruction] [get_bd_addr_segs axi_gpio_1/S_AXI/Reg] -force
 
-  # Perform GUI Layout
-  regenerate_bd_layout -layout_string {
-   "ActiveEmotionalView":"Default View",
-   "Default View_ScaleFactor":"0.68033",
-   "Default View_TopLeft":"2496,268",
-   "ExpandedHierarchyInLayout":"",
-   "PinnedBlocks":"/Main_AP_DDR_ctrl|/BOOT_ROM_ctrl|/Main_AP_DDR|/clk_wiz|/Boot_ROM|/Main_Interconnect|/microblaze_1_xlconcat|/mdm_1|/Boot_Interconnect|/axi_quad_spi_0|/axi_uartlite_0|/axi_gpio_0|/axi_gpio_1|/Boot_MC|/BOOT_MC_local_memory|/BOOT_MC_axi_intc|/Main_AP|/rst_clk_wiz_100M|/util_vector_logic_0|",
-   "PinnedPorts":"som240_1_connector_pmod1_spi|uart_rtl|som240_1_connector_hpa_clk0p_clk|reset_rtl|som240_1_connector_pmod2_gpio|som240_1_connector_User_led|",
-   "guistr":"# # String gsaved with Nlview 7.5.8 2022-09-21 7111 VDI=41 GEI=38 GUI=JA:10.0
-#  -string -flagsOSRD
-preplace port som240_1_connector_pmod1_spi -pg 1 -lvl 10 -x 3590 -y 800 -defaultsOSRD
-preplace port uart_rtl -pg 1 -lvl 10 -x 3590 -y 1120 -defaultsOSRD
-preplace port som240_1_connector_pmod2_gpio -pg 1 -lvl 10 -x 3590 -y 970 -defaultsOSRD
-preplace port som240_1_connector_User_led -pg 1 -lvl 10 -x 3590 -y 440 -defaultsOSRD
-preplace port port-id_som240_1_connector_hpa_clk0p_clk -pg 1 -lvl 0 -x -70 -y 900 -defaultsOSRD
-preplace port port-id_reset_rtl -pg 1 -lvl 0 -x -70 -y 780 -defaultsOSRD
-preplace inst Boot_MC -pg 1 -lvl 5 -x 2100 -y 890 -defaultsOSRD
-preplace inst Main_AP_DDR_ctrl -pg 1 -lvl 4 -x 1670 -y 500 -defaultsOSRD
-preplace inst BOOT_ROM_ctrl -pg 1 -lvl 8 -x 3170 -y 630 -defaultsOSRD
-preplace inst Main_AP_DDR -pg 1 -lvl 5 -x 2100 -y 500 -defaultsOSRD
-preplace inst clk_wiz -pg 1 -lvl 1 -x 440 -y 890 -defaultsOSRD
-preplace inst rst_clk_wiz_100M -pg 1 -lvl 2 -x 870 -y 800 -defaultsOSRD
-preplace inst Boot_ROM -pg 1 -lvl 9 -x 3470 -y 630 -defaultsOSRD
-preplace inst BOOT_MC_local_memory -pg 1 -lvl 6 -x 2520 -y 890 -defaultsOSRD
-preplace inst Main_Interconnect -pg 1 -lvl 3 -x 1310 -y 600 -defaultsOSRD
-preplace inst BOOT_MC_axi_intc -pg 1 -lvl 4 -x 1670 -y 800 -defaultsOSRD
-preplace inst microblaze_1_xlconcat -pg 1 -lvl 5 -x 2100 -y 650 -defaultsOSRD -orient R180
-preplace inst mdm_1 -pg 1 -lvl 4 -x 1670 -y 1000 -defaultsOSRD
-preplace inst Boot_Interconnect -pg 1 -lvl 7 -x 2810 -y 770 -defaultsOSRD
-preplace inst axi_quad_spi_0 -pg 1 -lvl 8 -x 3170 -y 810 -defaultsOSRD
-preplace inst axi_uartlite_0 -pg 1 -lvl 8 -x 3170 -y 1130 -defaultsOSRD
-preplace inst axi_gpio_0 -pg 1 -lvl 8 -x 3170 -y 990 -defaultsOSRD
-preplace inst axi_gpio_1 -pg 1 -lvl 8 -x 3170 -y 440 -defaultsOSRD
-preplace inst Main_AP -pg 1 -lvl 2 -x 870 -y 570 -defaultsOSRD
-preplace inst util_vector_logic_0 -pg 1 -lvl 1 -x 440 -y 780 -defaultsOSRD
-preplace netloc axi_quad_spi_0_ip2intc_irpt 1 5 4 2340J 370 2640 360 NJ 360 3310
-preplace netloc axi_uartlite_0_interrupt 1 5 4 2350J 570 2640 500 3030J 520 3320
-preplace netloc clk_wiz_locked 1 1 1 620 840n
-preplace netloc mdm_1_debug_sys_rst 1 0 5 290 960 610 1080 NJ 1080 NJ 1080 1810
-preplace netloc microblaze_0_Clk 1 1 7 600 660 1140 400 1480 910 1850 800 2380 800 2650 520 3010
-preplace netloc microblaze_1_intr 1 3 2 1520 650 N
-preplace netloc rst_clk_wiz_100M_bus_struct_reset 1 2 4 1110J 1100 NJ 1100 NJ 1100 2400
-preplace netloc rst_clk_wiz_100M_peripheral_aresetn 1 2 6 1150J 370 1510 580 NJ 580 2360 590 2660 510 3020
-preplace netloc rst_clk_wiz_100M_mb_reset 1 2 3 1160J 800 1470J 920 N
-preplace netloc axi_gpio_0_gpio2_io_o 1 1 8 630 1090 NJ 1090 NJ 1090 NJ 1090 NJ 1090 NJ 1090 3030J 910 3310
-preplace netloc som240_1_connector_hpa_clk0p_clk_1 1 0 1 NJ 900
-preplace netloc reset_rtl_1 1 0 1 N 780
-preplace netloc util_vector_logic_0_Res 1 1 1 N 780
-preplace netloc Boot_Interconnect_M01_AXI 1 2 6 1160 380 NJ 380 NJ 380 NJ 380 NJ 380 2970
-preplace netloc Boot_Interconnect_M02_AXI 1 7 1 3030 760n
-preplace netloc Boot_Interconnect_M03_AXI 1 7 1 2990 780n
-preplace netloc Boot_Interconnect_M04_AXI 1 7 1 2980 800n
-preplace netloc Boot_Interconnect_M05_AXI 1 3 5 1530 410 NJ 410 NJ 410 NJ 410 2960
-preplace netloc Boot_MP_M_AXI_IP 1 5 2 2390 580 NJ
-preplace netloc Main_Interconnect_M00_AXI 1 3 1 1500 480n
-preplace netloc Main_Interconnect_M01_AXI 1 3 5 1490 420 NJ 420 NJ 420 NJ 420 NJ
-preplace netloc axi_bram_ctrl_0_BRAM_PORTA 1 4 1 N 490
-preplace netloc axi_bram_ctrl_0_BRAM_PORTB 1 4 1 N 510
-preplace netloc axi_bram_ctrl_1_BRAM_PORTA 1 8 1 N 620
-preplace netloc axi_bram_ctrl_1_BRAM_PORTB 1 8 1 N 640
-preplace netloc axi_interconnect_0_M00_AXI 1 7 1 2990 610n
-preplace netloc axi_quad_spi_0_SPI_0 1 8 2 NJ 800 NJ
-preplace netloc axi_uartlite_0_UART 1 8 2 NJ 1120 NJ
-preplace netloc microblaze_0_M_AXI_DP 1 2 1 1110 480n
-preplace netloc microblaze_0_M_AXI_IP 1 2 1 1120 500n
-preplace netloc microblaze_0_debug 1 1 4 630 390 NJ 390 NJ 390 1810
-preplace netloc microblaze_1_M_AXI_DP 1 5 2 2360 600 N
-preplace netloc microblaze_1_debug 1 4 1 1860 880n
-preplace netloc microblaze_1_dlmb_1 1 5 1 N 860
-preplace netloc microblaze_1_ilmb_1 1 5 1 N 880
-preplace netloc microblaze_1_interrupt 1 4 1 1820 800n
-preplace netloc axi_gpio_0_GPIO 1 8 2 NJ 970 NJ
-preplace netloc axi_gpio_1_GPIO 1 8 2 NJ 440 NJ
-levelinfo -pg 1 -70 440 870 1310 1670 2100 2520 2810 3170 3470 3590
-pagesize -pg 1 -db -bbox -sgen -360 -180 5290 1640
-"
-}
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -722,15 +650,6 @@ cr_bd_SPI_Bootloader ""
 set_property REGISTERED_WITH_MANAGER "1" [get_files SPI_Bootloader.bd ] 
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files SPI_Bootloader.bd ] 
 
-#call make_wrapper to create wrapper files
-if { [get_property IS_LOCKED [ get_files -norecurse SPI_Bootloader.bd] ] == 1  } {
-  import_files -fileset sources_1 [file normalize "${origin_dir}/../../../Dissertation/Senthil_Project/Senthil_Project.gen/sources_1/bd/SPI_Bootloader/hdl/SPI_Bootloader_wrapper.v" ]
-} else {
-  set wrapper_path [make_wrapper -fileset sources_1 -files [ get_files -norecurse SPI_Bootloader.bd] -top]
-  add_files -norecurse -fileset sources_1 $wrapper_path
-}
-
-
 set idrFlowPropertiesConstraints ""
 catch {
  set idrFlowPropertiesConstraints [get_param runs.disableIDRFlowPropertyConstraints]
@@ -739,7 +658,7 @@ catch {
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
-    create_run -name synth_1 -part xck26-sfvc784-2LV-c -flow {Vivado Synthesis 2023} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
+    create_run -name synth_1 -part xc7a100tftg256-2 -flow {Vivado Synthesis 2023} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
 } else {
   set_property strategy "Vivado Synthesis Defaults" [get_runs synth_1]
   set_property flow "Vivado Synthesis 2023" [get_runs synth_1]
@@ -757,7 +676,7 @@ if { $obj != "" } {
 
 }
 set obj [get_runs synth_1]
-set_property -name "part" -value "xck26-sfvc784-2LV-c" -objects $obj
+set_property -name "part" -value "xc7a100tftg256-2" -objects $obj
 set_property -name "auto_incremental_checkpoint" -value "1" -objects $obj
 set_property -name "strategy" -value "Vivado Synthesis Defaults" -objects $obj
 
@@ -766,7 +685,7 @@ current_run -synthesis [get_runs synth_1]
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
-    create_run -name impl_1 -part xck26-sfvc784-2LV-c -flow {Vivado Implementation 2023} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
+    create_run -name impl_1 -part xc7a100tftg256-2 -flow {Vivado Implementation 2023} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
 } else {
   set_property strategy "Vivado Implementation Defaults" [get_runs impl_1]
   set_property flow "Vivado Implementation 2023" [get_runs impl_1]
@@ -980,7 +899,7 @@ set_property -name "options.warn_on_violation" -value "1" -objects $obj
 
 }
 set obj [get_runs impl_1]
-set_property -name "part" -value "xck26-sfvc784-2LV-c" -objects $obj
+set_property -name "part" -value "xc7a100tftg256-2" -objects $obj
 set_property -name "strategy" -value "Vivado Implementation Defaults" -objects $obj
 set_property -name "steps.write_bitstream.args.readback_file" -value "0" -objects $obj
 set_property -name "steps.write_bitstream.args.verbose" -value "0" -objects $obj
