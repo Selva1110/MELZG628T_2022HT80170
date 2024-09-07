@@ -85,7 +85,7 @@ module SPI_Bootloader_wrapper
 
   SPI_Bootloader SPI_Bootloader_i
        (.clk_100MHz(clk_100MHz),
-        .reset_rtl_0('b1),
+        .reset_rtl_0('b0),
         .gpio_rtl_0_tri_i(gpio_rtl_0_tri_i_0),
         .gpio_rtl_0_tri_o(gpio_rtl_0_tri_o_0),
         .gpio_rtl_0_tri_t(gpio_rtl_0_tri_t_0),
