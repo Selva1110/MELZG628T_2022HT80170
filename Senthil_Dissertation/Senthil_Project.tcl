@@ -257,7 +257,6 @@ proc cr_bd_SPI_Bootloader { parentCell } {
   set bCheckIPs 1
   if { $bCheckIPs == 1 } {
      set list_check_ips "\ 
-  xilinx.com:ip:axi_intc:4.1\
   xilinx.com:ip:axi_bram_ctrl:4.1\
   xilinx.com:ip:microblaze:11.0\
   xilinx.com:ip:blk_mem_gen:8.4\
@@ -265,9 +264,9 @@ proc cr_bd_SPI_Bootloader { parentCell } {
   xilinx.com:ip:axi_quad_spi:3.2\
   xilinx.com:ip:clk_wiz:6.0\
   xilinx.com:ip:mdm:3.2\
-  xilinx.com:ip:xlconcat:2.1\
   xilinx.com:ip:proc_sys_reset:5.0\
   xilinx.com:ip:axi_uart16550:2.0\
+  xilinx.com:ip:system_ila:1.1\
   xilinx.com:ip:lmb_bram_if_cntlr:4.0\
   xilinx.com:ip:lmb_v10:3.0\
   "
@@ -430,18 +429,13 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   # Create instance: BOOT_MC_local_memory
   create_hier_cell_BOOT_MC_local_memory [current_bd_instance .] BOOT_MC_local_memory
 
-  # Create instance: BOOT_MC_axi_intc, and set properties
-  set BOOT_MC_axi_intc [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 BOOT_MC_axi_intc ]
-  set_property CONFIG.C_HAS_FAST {1} $BOOT_MC_axi_intc
-
-
   # Create instance: BOOT_ROM_ctrl, and set properties
   set BOOT_ROM_ctrl [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 BOOT_ROM_ctrl ]
 
   # Create instance: Boot_Interconnect, and set properties
   set Boot_Interconnect [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 Boot_Interconnect ]
   set_property -dict [list \
-    CONFIG.NUM_MI {6} \
+    CONFIG.NUM_MI {5} \
     CONFIG.NUM_SI {2} \
   ] $Boot_Interconnect
 
@@ -515,6 +509,7 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   set axi_gpio_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_0 ]
   set_property -dict [list \
     CONFIG.C_ALL_OUTPUTS_2 {1} \
+    CONFIG.C_GPIO2_WIDTH {1} \
     CONFIG.C_GPIO_WIDTH {1} \
     CONFIG.C_IS_DUAL {1} \
     CONFIG.GPIO2_BOARD_INTERFACE {Custom} \
@@ -537,7 +532,9 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   set axi_quad_spi_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_quad_spi:3.2 axi_quad_spi_0 ]
   set_property -dict [list \
     CONFIG.C_FAMILY {zynquplus} \
-    CONFIG.C_SPI_MODE {2} \
+    CONFIG.C_FIFO_DEPTH {256} \
+    CONFIG.C_SCK_RATIO {16} \
+    CONFIG.C_SPI_MODE {0} \
     CONFIG.C_SUB_FAMILY {zynquplus} \
     CONFIG.C_USE_STARTUP {0} \
     CONFIG.QSPI_BOARD_INTERFACE {Custom} \
@@ -558,9 +555,6 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   ] $mdm_1
 
 
-  # Create instance: microblaze_1_xlconcat, and set properties
-  set microblaze_1_xlconcat [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 microblaze_1_xlconcat ]
-
   # Create instance: rst_clk_wiz_100M, and set properties
   set rst_clk_wiz_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_100M ]
   set_property -dict [list \
@@ -574,12 +568,31 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   # Create instance: axi_uart16550_0, and set properties
   set axi_uart16550_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uart16550:2.0 axi_uart16550_0 ]
 
+
+  # Create instance: system_ila_0, and set properties
+  set system_ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 system_ila_0 ]
+  set_property -dict [list \
+    CONFIG.C_DATA_DEPTH {16384} \
+    CONFIG.C_MON_TYPE {MIX} \
+    CONFIG.C_NUM_MONITOR_SLOTS {3} \
+    CONFIG.C_NUM_OF_PROBES {1} \
+    CONFIG.C_PROBE0_TYPE {0} \
+    CONFIG.C_SLOT_0_INTF_TYPE {xilinx.com:interface:gpio_rtl:1.0} \
+    CONFIG.C_SLOT_0_TYPE {0} \
+    CONFIG.C_SLOT_1_INTF_TYPE {xilinx.com:interface:gpio_rtl:1.0} \
+    CONFIG.C_SLOT_1_TYPE {0} \
+    CONFIG.C_SLOT_2_INTF_TYPE {xilinx.com:interface:spi_rtl:1.0} \
+    CONFIG.C_SLOT_2_TYPE {0} \
+    CONFIG.C_SLOT_3_INTF_TYPE {xilinx.com:interface:uart_rtl:1.0} \
+    CONFIG.C_SLOT_3_TYPE {0} \
+  ] $system_ila_0
+
+
   # Create interface connections
   connect_bd_intf_net -intf_net Boot_Interconnect_M01_AXI [get_bd_intf_pins Boot_Interconnect/M01_AXI] [get_bd_intf_pins Main_Interconnect/S00_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M02_AXI [get_bd_intf_pins axi_quad_spi_0/AXI_LITE] [get_bd_intf_pins Boot_Interconnect/M02_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M03_AXI [get_bd_intf_pins Boot_Interconnect/M03_AXI] [get_bd_intf_pins axi_uart16550_0/S_AXI]
   connect_bd_intf_net -intf_net Boot_Interconnect_M04_AXI [get_bd_intf_pins axi_gpio_0/S_AXI] [get_bd_intf_pins Boot_Interconnect/M04_AXI]
-  connect_bd_intf_net -intf_net Boot_Interconnect_M05_AXI [get_bd_intf_pins BOOT_MC_axi_intc/s_axi] [get_bd_intf_pins Boot_Interconnect/M05_AXI]
   connect_bd_intf_net -intf_net Boot_MP_M_AXI_IP [get_bd_intf_pins Boot_MC/M_AXI_IP] [get_bd_intf_pins Boot_Interconnect/S00_AXI]
   connect_bd_intf_net -intf_net Main_Interconnect_M00_AXI [get_bd_intf_pins Main_Interconnect/M00_AXI] [get_bd_intf_pins Main_AP_DDR_ctrl/S_AXI]
   connect_bd_intf_net -intf_net Main_Interconnect_M01_AXI [get_bd_intf_pins Main_Interconnect/M01_AXI] [get_bd_intf_pins axi_gpio_1/S_AXI]
@@ -588,35 +601,37 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   connect_bd_intf_net -intf_net axi_bram_ctrl_1_BRAM_PORTA [get_bd_intf_pins Boot_ROM/BRAM_PORTA] [get_bd_intf_pins BOOT_ROM_ctrl/BRAM_PORTA]
   connect_bd_intf_net -intf_net axi_bram_ctrl_1_BRAM_PORTB [get_bd_intf_pins Boot_ROM/BRAM_PORTB] [get_bd_intf_pins BOOT_ROM_ctrl/BRAM_PORTB]
   connect_bd_intf_net -intf_net axi_gpio_0_GPIO [get_bd_intf_ports gpio_rtl_0] [get_bd_intf_pins axi_gpio_0/GPIO]
+connect_bd_intf_net -intf_net [get_bd_intf_nets axi_gpio_0_GPIO] [get_bd_intf_ports gpio_rtl_0] [get_bd_intf_pins system_ila_0/SLOT_0_GPIO]
+  set_property HDL_ATTRIBUTE.DEBUG {true} [get_bd_intf_nets axi_gpio_0_GPIO]
   connect_bd_intf_net -intf_net axi_gpio_1_GPIO [get_bd_intf_ports gpio_rtl_1] [get_bd_intf_pins axi_gpio_1/GPIO]
+connect_bd_intf_net -intf_net [get_bd_intf_nets axi_gpio_1_GPIO] [get_bd_intf_ports gpio_rtl_1] [get_bd_intf_pins system_ila_0/SLOT_1_GPIO]
+  set_property HDL_ATTRIBUTE.DEBUG {true} [get_bd_intf_nets axi_gpio_1_GPIO]
   connect_bd_intf_net -intf_net axi_interconnect_0_M00_AXI [get_bd_intf_pins Boot_Interconnect/M00_AXI] [get_bd_intf_pins BOOT_ROM_ctrl/S_AXI]
   connect_bd_intf_net -intf_net axi_quad_spi_0_SPI_0 [get_bd_intf_ports spi_rtl_0] [get_bd_intf_pins axi_quad_spi_0/SPI_0]
+connect_bd_intf_net -intf_net [get_bd_intf_nets axi_quad_spi_0_SPI_0] [get_bd_intf_ports spi_rtl_0] [get_bd_intf_pins system_ila_0/SLOT_2_SPI]
+  set_property HDL_ATTRIBUTE.DEBUG {true} [get_bd_intf_nets axi_quad_spi_0_SPI_0]
   connect_bd_intf_net -intf_net axi_uart16550_0_UART [get_bd_intf_ports uart_rtl_0] [get_bd_intf_pins axi_uart16550_0/UART]
-  connect_bd_intf_net -intf_net microblaze_0_M_AXI_DP [get_bd_intf_pins Main_AP/M_AXI_DP] [get_bd_intf_pins Main_Interconnect/S01_AXI]
-  connect_bd_intf_net -intf_net microblaze_0_M_AXI_IP [get_bd_intf_pins Main_AP/M_AXI_IP] [get_bd_intf_pins Main_Interconnect/S02_AXI]
+  connect_bd_intf_net -intf_net microblaze_0_M_AXI_DP [get_bd_intf_pins Main_Interconnect/S01_AXI] [get_bd_intf_pins Main_AP/M_AXI_DP]
+  connect_bd_intf_net -intf_net microblaze_0_M_AXI_IP [get_bd_intf_pins Main_Interconnect/S02_AXI] [get_bd_intf_pins Main_AP/M_AXI_IP]
   connect_bd_intf_net -intf_net microblaze_0_debug [get_bd_intf_pins mdm_1/MBDEBUG_1] [get_bd_intf_pins Main_AP/DEBUG]
   connect_bd_intf_net -intf_net microblaze_1_M_AXI_DP [get_bd_intf_pins Boot_MC/M_AXI_DP] [get_bd_intf_pins Boot_Interconnect/S01_AXI]
   connect_bd_intf_net -intf_net microblaze_1_debug [get_bd_intf_pins mdm_1/MBDEBUG_0] [get_bd_intf_pins Boot_MC/DEBUG]
   connect_bd_intf_net -intf_net microblaze_1_dlmb_1 [get_bd_intf_pins Boot_MC/DLMB] [get_bd_intf_pins BOOT_MC_local_memory/DLMB]
   connect_bd_intf_net -intf_net microblaze_1_ilmb_1 [get_bd_intf_pins Boot_MC/ILMB] [get_bd_intf_pins BOOT_MC_local_memory/ILMB]
-  connect_bd_intf_net -intf_net microblaze_1_interrupt [get_bd_intf_pins BOOT_MC_axi_intc/interrupt] [get_bd_intf_pins Boot_MC/INTERRUPT]
 
   # Create port connections
-  connect_bd_net -net axi_gpio_0_gpio2_io_o [get_bd_pins axi_gpio_0/gpio2_io_o] [get_bd_pins Main_AP/Reset]
-  connect_bd_net -net axi_quad_spi_0_ip2intc_irpt [get_bd_pins axi_quad_spi_0/ip2intc_irpt] [get_bd_pins microblaze_1_xlconcat/In0]
-  connect_bd_net -net axi_uart16550_0_ip2intc_irpt [get_bd_pins axi_uart16550_0/ip2intc_irpt] [get_bd_pins microblaze_1_xlconcat/In1]
+  connect_bd_net -net axi_gpio_0_gpio2_io_o [get_bd_pins axi_gpio_0/gpio2_io_o] [get_bd_pins Main_AP/Reset] [get_bd_pins system_ila_0/probe0]
+  set_property HDL_ATTRIBUTE.DEBUG {true} [get_bd_nets axi_gpio_0_gpio2_io_o]
   connect_bd_net -net clk_100MHz_1 [get_bd_ports clk_100MHz] [get_bd_pins clk_wiz/clk_in1]
   connect_bd_net -net clk_wiz_locked [get_bd_pins clk_wiz/locked] [get_bd_pins rst_clk_wiz_100M/dcm_locked]
   connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins clk_wiz/reset] [get_bd_pins rst_clk_wiz_100M/mb_debug_sys_rst]
-  connect_bd_net -net microblaze_0_Clk [get_bd_pins clk_wiz/clk_out1] [get_bd_pins BOOT_MC_local_memory/LMB_Clk] [get_bd_pins BOOT_MC_axi_intc/s_axi_aclk] [get_bd_pins BOOT_MC_axi_intc/processor_clk] [get_bd_pins BOOT_ROM_ctrl/s_axi_aclk] [get_bd_pins Boot_Interconnect/ACLK] [get_bd_pins Boot_Interconnect/S00_ACLK] [get_bd_pins Boot_Interconnect/M00_ACLK] [get_bd_pins Boot_Interconnect/M01_ACLK] [get_bd_pins Boot_Interconnect/S01_ACLK] [get_bd_pins Boot_Interconnect/M02_ACLK] [get_bd_pins Boot_Interconnect/M03_ACLK] [get_bd_pins Boot_Interconnect/M04_ACLK] [get_bd_pins Boot_Interconnect/M05_ACLK] [get_bd_pins Boot_MC/Clk] [get_bd_pins Main_AP/Clk] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aclk] [get_bd_pins Main_Interconnect/ACLK] [get_bd_pins Main_Interconnect/S00_ACLK] [get_bd_pins Main_Interconnect/M00_ACLK] [get_bd_pins Main_Interconnect/M01_ACLK] [get_bd_pins Main_Interconnect/S01_ACLK] [get_bd_pins Main_Interconnect/S02_ACLK] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins axi_gpio_1/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins axi_uart16550_0/s_axi_aclk]
-  connect_bd_net -net microblaze_1_intr [get_bd_pins microblaze_1_xlconcat/dout] [get_bd_pins BOOT_MC_axi_intc/intr]
+  connect_bd_net -net microblaze_0_Clk [get_bd_pins clk_wiz/clk_out1] [get_bd_pins BOOT_MC_local_memory/LMB_Clk] [get_bd_pins BOOT_ROM_ctrl/s_axi_aclk] [get_bd_pins Boot_Interconnect/ACLK] [get_bd_pins Boot_Interconnect/S00_ACLK] [get_bd_pins Boot_Interconnect/M00_ACLK] [get_bd_pins Boot_Interconnect/M01_ACLK] [get_bd_pins Boot_Interconnect/S01_ACLK] [get_bd_pins Boot_Interconnect/M02_ACLK] [get_bd_pins Boot_Interconnect/M03_ACLK] [get_bd_pins Boot_Interconnect/M04_ACLK] [get_bd_pins Boot_MC/Clk] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aclk] [get_bd_pins Main_Interconnect/ACLK] [get_bd_pins Main_Interconnect/S00_ACLK] [get_bd_pins Main_Interconnect/M00_ACLK] [get_bd_pins Main_Interconnect/M01_ACLK] [get_bd_pins Main_Interconnect/S01_ACLK] [get_bd_pins Main_Interconnect/S02_ACLK] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins axi_gpio_1/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins axi_uart16550_0/s_axi_aclk] [get_bd_pins Main_AP/Clk] [get_bd_pins system_ila_0/clk]
   connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_100M/ext_reset_in]
   connect_bd_net -net rst_clk_wiz_100M_bus_struct_reset [get_bd_pins rst_clk_wiz_100M/bus_struct_reset] [get_bd_pins BOOT_MC_local_memory/SYS_Rst]
-  connect_bd_net -net rst_clk_wiz_100M_mb_reset [get_bd_pins rst_clk_wiz_100M/mb_reset] [get_bd_pins BOOT_MC_axi_intc/processor_rst] [get_bd_pins Boot_MC/Reset]
-  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn] [get_bd_pins BOOT_MC_axi_intc/s_axi_aresetn] [get_bd_pins BOOT_ROM_ctrl/s_axi_aresetn] [get_bd_pins Boot_Interconnect/ARESETN] [get_bd_pins Boot_Interconnect/S00_ARESETN] [get_bd_pins Boot_Interconnect/M00_ARESETN] [get_bd_pins Boot_Interconnect/M01_ARESETN] [get_bd_pins Boot_Interconnect/S01_ARESETN] [get_bd_pins Boot_Interconnect/M02_ARESETN] [get_bd_pins Boot_Interconnect/M03_ARESETN] [get_bd_pins Boot_Interconnect/M04_ARESETN] [get_bd_pins Boot_Interconnect/M05_ARESETN] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aresetn] [get_bd_pins Main_Interconnect/ARESETN] [get_bd_pins Main_Interconnect/S00_ARESETN] [get_bd_pins Main_Interconnect/M00_ARESETN] [get_bd_pins Main_Interconnect/M01_ARESETN] [get_bd_pins Main_Interconnect/S01_ARESETN] [get_bd_pins Main_Interconnect/S02_ARESETN] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins axi_gpio_1/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn]
+  connect_bd_net -net rst_clk_wiz_100M_mb_reset [get_bd_pins rst_clk_wiz_100M/mb_reset] [get_bd_pins Boot_MC/Reset]
+  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn] [get_bd_pins BOOT_ROM_ctrl/s_axi_aresetn] [get_bd_pins Boot_Interconnect/ARESETN] [get_bd_pins Boot_Interconnect/S00_ARESETN] [get_bd_pins Boot_Interconnect/M00_ARESETN] [get_bd_pins Boot_Interconnect/M01_ARESETN] [get_bd_pins Boot_Interconnect/S01_ARESETN] [get_bd_pins Boot_Interconnect/M02_ARESETN] [get_bd_pins Boot_Interconnect/M03_ARESETN] [get_bd_pins Boot_Interconnect/M04_ARESETN] [get_bd_pins Main_AP_DDR_ctrl/s_axi_aresetn] [get_bd_pins Main_Interconnect/ARESETN] [get_bd_pins Main_Interconnect/S00_ARESETN] [get_bd_pins Main_Interconnect/M00_ARESETN] [get_bd_pins Main_Interconnect/M01_ARESETN] [get_bd_pins Main_Interconnect/S01_ARESETN] [get_bd_pins Main_Interconnect/S02_ARESETN] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins axi_gpio_1/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn]
 
   # Create address segments
-  assign_bd_address -offset 0x41200000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs BOOT_MC_axi_intc/S_AXI/Reg] -force
   assign_bd_address -offset 0xC0000000 -range 0x00040000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs BOOT_ROM_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0xC2000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs Main_AP_DDR_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40000000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] -force
@@ -624,7 +639,6 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   assign_bd_address -offset 0x44A00000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_quad_spi_0/AXI_LITE/Reg] -force
   assign_bd_address -offset 0x44A10000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x00000000 -range 0x00008000 -target_address_space [get_bd_addr_spaces Boot_MC/Data] [get_bd_addr_segs BOOT_MC_local_memory/dlmb_bram_if_cntlr/SLMB/Mem] -force
-  assign_bd_address -offset 0x41200000 -range 0x00000400 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs BOOT_MC_axi_intc/S_AXI/Reg] -force
   assign_bd_address -offset 0xC0000000 -range 0x00040000 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs BOOT_ROM_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0xC2000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs Main_AP_DDR_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40000000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Boot_MC/Instruction] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] -force
@@ -637,6 +651,75 @@ proc create_hier_cell_BOOT_MC_local_memory { parentCell nameHier } {
   assign_bd_address -offset 0xC2000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces Main_AP/Instruction] [get_bd_addr_segs Main_AP_DDR_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40010000 -range 0x00000080 -target_address_space [get_bd_addr_spaces Main_AP/Instruction] [get_bd_addr_segs axi_gpio_1/S_AXI/Reg] -force
 
+  # Perform GUI Layout
+  regenerate_bd_layout -layout_string {
+   "ActiveEmotionalView":"Default View",
+   "Default View_ScaleFactor":"0.834054",
+   "Default View_TopLeft":"380,447",
+   "ExpandedHierarchyInLayout":"",
+   "PinnedBlocks":"/BOOT_MC_local_memory|/BOOT_ROM_ctrl|/Boot_Interconnect|/Boot_MC|/Boot_ROM|/Main_AP_DDR|/Main_AP_DDR_ctrl|/Main_Interconnect|/axi_gpio_0|/axi_gpio_1|/axi_quad_spi_0|/clk_wiz|/mdm_1|/rst_clk_wiz_100M|/axi_uart16550_0|/Main_AP|/system_ila_0|",
+   "PinnedPorts":"clk_100MHz|reset_rtl_0|uart_rtl_0|gpio_rtl_0|gpio_rtl_1|spi_rtl_0|",
+   "guistr":"# # String gsaved with Nlview 7.5.8 2022-09-21 7111 VDI=41 GEI=38 GUI=JA:10.0
+#  -string -flagsOSRD
+preplace port uart_rtl_0 -pg 1 -lvl 5 -x 1720 -y 1000 -defaultsOSRD
+preplace port gpio_rtl_0 -pg 1 -lvl 5 -x 1720 -y 350 -defaultsOSRD
+preplace port gpio_rtl_1 -pg 1 -lvl 5 -x 1720 -y 1030 -defaultsOSRD
+preplace port spi_rtl_0 -pg 1 -lvl 5 -x 1720 -y 970 -defaultsOSRD
+preplace port port-id_clk_100MHz -pg 1 -lvl 0 -x -110 -y 780 -defaultsOSRD
+preplace port port-id_reset_rtl_0 -pg 1 -lvl 0 -x -110 -y 900 -defaultsOSRD
+preplace inst BOOT_MC_local_memory -pg 1 -lvl 3 -x 1270 -y 640 -defaultsOSRD
+preplace inst BOOT_ROM_ctrl -pg 1 -lvl 2 -x 770 -y 340 -defaultsOSRD
+preplace inst Boot_Interconnect -pg 1 -lvl 1 -x 180 -y 470 -defaultsOSRD
+preplace inst Boot_MC -pg 1 -lvl 2 -x 770 -y 620 -defaultsOSRD
+preplace inst Boot_ROM -pg 1 -lvl 3 -x 1270 -y 220 -defaultsOSRD
+preplace inst Main_AP_DDR -pg 1 -lvl 4 -x 1583 -y 510 -defaultsOSRD
+preplace inst Main_AP_DDR_ctrl -pg 1 -lvl 3 -x 1270 -y 490 -defaultsOSRD
+preplace inst Main_Interconnect -pg 1 -lvl 2 -x 770 -y 890 -defaultsOSRD
+preplace inst axi_gpio_0 -pg 1 -lvl 3 -x 1270 -y 350 -defaultsOSRD
+preplace inst axi_gpio_1 -pg 1 -lvl 3 -x 1270 -y 1160 -defaultsOSRD
+preplace inst axi_quad_spi_0 -pg 1 -lvl 3 -x 1270 -y 850 -defaultsOSRD
+preplace inst clk_wiz -pg 1 -lvl 1 -x 180 -y 770 -defaultsOSRD
+preplace inst mdm_1 -pg 1 -lvl 1 -x 180 -y 1100 -defaultsOSRD
+preplace inst rst_clk_wiz_100M -pg 1 -lvl 1 -x 180 -y 920 -defaultsOSRD
+preplace inst axi_uart16550_0 -pg 1 -lvl 3 -x 1270 -y 1010 -defaultsOSRD
+preplace inst Main_AP -pg 1 -lvl 2 -x 770 -y 1160 -defaultsOSRD
+preplace inst system_ila_0 -pg 1 -lvl 4 -x 1583 -y 720 -defaultsOSRD
+preplace netloc clk_100MHz_1 1 0 1 NJ 780
+preplace netloc clk_wiz_locked 1 0 2 10 1020 350
+preplace netloc mdm_1_debug_sys_rst 1 0 2 0 1180 350
+preplace netloc microblaze_0_Clk 1 0 4 -10 700 460 250 1080 740 N
+preplace netloc reset_rtl_0_1 1 0 1 NJ 900
+preplace netloc rst_clk_wiz_100M_bus_struct_reset 1 1 2 490 530 1050
+preplace netloc rst_clk_wiz_100M_mb_reset 1 1 1 500 650n
+preplace netloc rst_clk_wiz_100M_peripheral_aresetn 1 0 3 10 240 480 420 1120
+preplace netloc axi_gpio_0_gpio2_io_o 1 1 3 480 1270 1130 760 1410
+preplace netloc Boot_Interconnect_M01_AXI 1 1 1 470 450n
+preplace netloc Boot_Interconnect_M02_AXI 1 1 2 NJ 470 1100
+preplace netloc Boot_Interconnect_M03_AXI 1 1 2 NJ 490 1040
+preplace netloc Boot_Interconnect_M04_AXI 1 1 2 350J 260 1120
+preplace netloc Boot_MP_M_AXI_IP 1 0 3 -20 220 N 220 1020
+preplace netloc Main_Interconnect_M00_AXI 1 2 1 1110 470n
+preplace netloc Main_Interconnect_M01_AXI 1 2 1 1010 900n
+preplace netloc axi_bram_ctrl_0_BRAM_PORTA 1 3 1 1430 480n
+preplace netloc axi_bram_ctrl_0_BRAM_PORTB 1 3 1 1420 500n
+preplace netloc axi_bram_ctrl_1_BRAM_PORTA 1 2 1 1030 210n
+preplace netloc axi_bram_ctrl_1_BRAM_PORTB 1 2 1 1040 230n
+preplace netloc axi_gpio_0_GPIO 1 3 2 1483J 350 NJ
+preplace netloc axi_gpio_1_GPIO 1 3 2 1473J 1030 NJ
+preplace netloc axi_interconnect_0_M00_AXI 1 1 1 360 320n
+preplace netloc axi_quad_spi_0_SPI_0 1 3 2 1483J 970 NJ
+preplace netloc axi_uart16550_0_UART 1 3 2 NJ 1000 NJ
+preplace netloc microblaze_1_M_AXI_DP 1 0 3 0 230 N 230 1010
+preplace netloc microblaze_1_debug 1 1 1 510 610n
+preplace netloc microblaze_1_dlmb_1 1 2 1 1090 590n
+preplace netloc microblaze_1_ilmb_1 1 2 1 1030 610n
+preplace netloc microblaze_0_debug 1 1 1 360J 1100n
+preplace netloc microblaze_0_M_AXI_IP 1 1 2 530 1250 1010J
+preplace netloc microblaze_0_M_AXI_DP 1 1 2 520 1260 1020J
+levelinfo -pg 1 -110 180 770 1270 1583 1720
+pagesize -pg 1 -db -bbox -sgen -240 0 2020 1480
+"
+}
 
   # Restore current instance
   current_bd_instance $oldCurInst
