@@ -2,7 +2,7 @@
 //Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 //--------------------------------------------------------------------------------
 //Tool Version: Vivado v.2023.1 (win64) Build 3865809 Sun May  7 15:05:29 MDT 2023
-//Date        : Thu Aug 22 09:33:09 2024
+//Date        : Sat Sep 14 20:03:47 2024
 //Host        : DESKTOP-RRPQJKB running 64-bit major release  (build 9200)
 //Command     : generate_target SPI_Bootloader_wrapper.bd
 //Design      : SPI_Bootloader_wrapper
@@ -16,8 +16,6 @@ module SPI_Bootloader_wrapper
     gpio_rtl_1_tri_o,
     spi_rtl_0_io0_io,
     spi_rtl_0_io1_io,
-    spi_rtl_0_io2_io,
-    spi_rtl_0_io3_io,
     spi_rtl_0_sck_io,
     spi_rtl_0_ss_io,
     uart_rtl_0_ctsn,
@@ -29,8 +27,6 @@ module SPI_Bootloader_wrapper
   output [1:0]gpio_rtl_1_tri_o;
   inout spi_rtl_0_io0_io;
   inout spi_rtl_0_io1_io;
-  inout spi_rtl_0_io2_io;
-  inout spi_rtl_0_io3_io;
   inout spi_rtl_0_sck_io;
   inout [0:0]spi_rtl_0_ss_io;
   input uart_rtl_0_ctsn;
@@ -44,6 +40,7 @@ module SPI_Bootloader_wrapper
   wire [0:0]gpio_rtl_0_tri_o_0;
   wire [0:0]gpio_rtl_0_tri_t_0;
   wire [1:0]gpio_rtl_1_tri_o;
+  wire reset_rtl_0;
   wire spi_rtl_0_io0_i;
   wire spi_rtl_0_io0_io;
   wire spi_rtl_0_io0_o;
@@ -52,14 +49,6 @@ module SPI_Bootloader_wrapper
   wire spi_rtl_0_io1_io;
   wire spi_rtl_0_io1_o;
   wire spi_rtl_0_io1_t;
-  wire spi_rtl_0_io2_i;
-  wire spi_rtl_0_io2_io;
-  wire spi_rtl_0_io2_o;
-  wire spi_rtl_0_io2_t;
-  wire spi_rtl_0_io3_i;
-  wire spi_rtl_0_io3_io;
-  wire spi_rtl_0_io3_o;
-  wire spi_rtl_0_io3_t;
   wire spi_rtl_0_sck_i;
   wire spi_rtl_0_sck_io;
   wire spi_rtl_0_sck_o;
@@ -85,23 +74,17 @@ module SPI_Bootloader_wrapper
 
   SPI_Bootloader SPI_Bootloader_i
        (.clk_100MHz(clk_100MHz),
-        .reset_rtl_0('b0),
         .gpio_rtl_0_tri_i(gpio_rtl_0_tri_i_0),
         .gpio_rtl_0_tri_o(gpio_rtl_0_tri_o_0),
         .gpio_rtl_0_tri_t(gpio_rtl_0_tri_t_0),
         .gpio_rtl_1_tri_o(gpio_rtl_1_tri_o),
+        .reset_rtl_0('b0),
         .spi_rtl_0_io0_i(spi_rtl_0_io0_i),
         .spi_rtl_0_io0_o(spi_rtl_0_io0_o),
         .spi_rtl_0_io0_t(spi_rtl_0_io0_t),
         .spi_rtl_0_io1_i(spi_rtl_0_io1_i),
         .spi_rtl_0_io1_o(spi_rtl_0_io1_o),
         .spi_rtl_0_io1_t(spi_rtl_0_io1_t),
-        .spi_rtl_0_io2_i(spi_rtl_0_io2_i),
-        .spi_rtl_0_io2_o(spi_rtl_0_io2_o),
-        .spi_rtl_0_io2_t(spi_rtl_0_io2_t),
-        .spi_rtl_0_io3_i(spi_rtl_0_io3_i),
-        .spi_rtl_0_io3_o(spi_rtl_0_io3_o),
-        .spi_rtl_0_io3_t(spi_rtl_0_io3_t),
         .spi_rtl_0_sck_i(spi_rtl_0_sck_i),
         .spi_rtl_0_sck_o(spi_rtl_0_sck_o),
         .spi_rtl_0_sck_t(spi_rtl_0_sck_t),
@@ -137,16 +120,6 @@ module SPI_Bootloader_wrapper
         .IO(spi_rtl_0_io1_io),
         .O(spi_rtl_0_io1_i),
         .T(spi_rtl_0_io1_t));
-  IOBUF spi_rtl_0_io2_iobuf
-       (.I(spi_rtl_0_io2_o),
-        .IO(spi_rtl_0_io2_io),
-        .O(spi_rtl_0_io2_i),
-        .T(spi_rtl_0_io2_t));
-  IOBUF spi_rtl_0_io3_iobuf
-       (.I(spi_rtl_0_io3_o),
-        .IO(spi_rtl_0_io3_io),
-        .O(spi_rtl_0_io3_i),
-        .T(spi_rtl_0_io3_t));
   IOBUF spi_rtl_0_sck_iobuf
        (.I(spi_rtl_0_sck_o),
         .IO(spi_rtl_0_sck_io),
